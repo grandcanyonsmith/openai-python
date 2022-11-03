@@ -31,9 +31,7 @@ class APIResource(OpenAIObject):
         # Namespaces are separated in object names with periods (.) and in URLs
         # with forward slashes (/), so replace the former with the latter.
         base = cls.OBJECT_NAME.replace(".", "/")  # type: ignore
-        if cls.api_prefix:
-            return "/%s/%ss" % (cls.api_prefix, base)
-        return "/%ss" % (base)
+        return f"/{cls.api_prefix}/{base}s" if cls.api_prefix else f"/{base}s"
 
     def instance_url(self, operation=None):
         id = self.get("id")
@@ -45,9 +43,9 @@ class APIResource(OpenAIObject):
                 " `unicode`)" % (type(self).__name__, id, type(id)),
                 "id",
             )
-        api_version = self.api_version or openai.api_version
-
         if self.typed_api_type == ApiType.AZURE:
+            api_version = self.api_version or openai.api_version
+
             if not api_version:
                 raise error.InvalidRequestError("An API version is required for the Azure API type.")
             if not operation:
@@ -55,15 +53,15 @@ class APIResource(OpenAIObject):
                     "The request needs an operation (eg: 'search') for the Azure OpenAI API type."
                 )
             extn = quote_plus(id)
-            return "/%s/%s/%s?api-version=%s" % (self.azure_api_prefix, extn, operation, api_version)
+            return f"/{self.azure_api_prefix}/{extn}/{operation}?api-version={api_version}"
 
         elif self.typed_api_type == ApiType.OPEN_AI:
             base = self.class_url()
             extn = quote_plus(id)
-            return "%s/%s" % (base, extn)
+            return f"{base}/{extn}"
 
         else:
-            raise error.InvalidAPIType('Unsupported API type %s' % self.api_type)
+            raise error.InvalidAPIType(f'Unsupported API type {self.api_type}')
     
 
     # The `method_` and `url_` arguments are suffixed with an underscore to

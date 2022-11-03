@@ -82,7 +82,7 @@ def additional_column_validator(df, fields=["prompt", "completion"]):
         warn_message = ""
         for ac in additional_columns:
             dups = [c for c in additional_columns if ac in c]
-            if len(dups) > 0:
+            if dups:
                 warn_message += f"\n  WARNING: Some of the additional columns/keys contain `{ac}` in their name. These will be ignored, and the column/key `{ac}` will be used instead. This could also result from a duplicate column/key in the provided file."
         immediate_msg = f"\n- The input file should contain exactly two columns/keys per row. Additional columns/keys present are: {additional_columns}{warn_message}"
         necessary_msg = f"Remove additional columns/keys: {additional_columns}"
@@ -198,9 +198,8 @@ def common_prompt_suffix_validator(df):
         "\n\n--->\n\n",
     ]
     for suffix_option in suffix_options:
-        if suffix_option == " ->":
-            if df.prompt.str.contains("\n").any():
-                continue
+        if suffix_option == " ->" and df.prompt.str.contains("\n").any():
+            continue
         if df.prompt.str.contains(suffix_option, regex=False).any():
             continue
         suggested_suffix = suffix_option
@@ -339,7 +338,7 @@ def common_completion_suffix_validator(df):
     optional_fn = None
 
     ft_type = infer_task_type(df)
-    if ft_type == "open-ended generation" or ft_type == "classification":
+    if ft_type in ["open-ended generation", "classification"]:
         return Remediation(name="common_suffix")
 
     common_suffix = get_common_xfix(df.completion, xfix="suffix")
@@ -573,10 +572,11 @@ def apply_optional_remediation(df, remediation, auto_accept):
     """
     optional_applied = False
     input_text = f"- [Recommended] {remediation.optional_msg} [Y/n]: "
-    if remediation.optional_msg is not None:
-        if accept_suggestion(input_text, auto_accept):
-            df = remediation.optional_fn(df)
-            optional_applied = True
+    if remediation.optional_msg is not None and accept_suggestion(
+        input_text, auto_accept
+    ):
+        df = remediation.optional_fn(df)
+        optional_applied = True
     if remediation.necessary_msg is not None:
         sys.stdout.write(f"- [Necessary] {remediation.necessary_msg}\n")
     return df, optional_applied
@@ -627,9 +627,7 @@ def get_outfnames(fname, split):
 
 def get_classification_hyperparams(df):
     n_classes = df.completion.nunique()
-    pos_class = None
-    if n_classes == 2:
-        pos_class = df.completion.value_counts().index[0]
+    pos_class = df.completion.value_counts().index[0] if n_classes == 2 else None
     return n_classes, pos_class
 
 
@@ -642,11 +640,11 @@ def write_out_file(df, fname, any_remediations, auto_accept):
     common_prompt_suffix = get_common_xfix(df.prompt, xfix="suffix")
     common_completion_suffix = get_common_xfix(df.completion, xfix="suffix")
 
-    split = False
     input_text = "- [Recommended] Would you like to split into training and validation set? [Y/n]: "
-    if ft_format == "classification":
-        if accept_suggestion(input_text, auto_accept):
-            split = True
+    split = bool(
+        ft_format == "classification"
+        and accept_suggestion(input_text, auto_accept)
+    )
 
     additional_params = ""
     common_prompt_suffix_new_line_handled = common_prompt_suffix.replace("\n", "\\n")
@@ -738,14 +736,15 @@ def infer_task_type(df):
     """
     Infer the likely fine-tuning task type from the data
     """
-    CLASSIFICATION_THRESHOLD = 3  # min_average instances of each class
     if sum(df.prompt.str.len()) == 0:
         return "open-ended generation"
 
-    if len(df.completion.unique()) < len(df) / CLASSIFICATION_THRESHOLD:
-        return "classification"
-
-    return "conditional generation"
+    CLASSIFICATION_THRESHOLD = 3  # min_average instances of each class
+    return (
+        "classification"
+        if len(df.completion.unique()) < len(df) / CLASSIFICATION_THRESHOLD
+        else "conditional generation"
+    )
 
 
 def get_common_xfix(series, xfix="suffix"):
@@ -827,20 +826,18 @@ def apply_validators(
             df = apply_necessary_remediation(df, remediation)
 
     any_optional_or_necessary_remediations = any(
-        [
-            remediation
-            for remediation in optional_remediations
-            if remediation.optional_msg is not None
-            or remediation.necessary_msg is not None
-        ]
+        remediation
+        for remediation in optional_remediations
+        if remediation.optional_msg is not None
+        or remediation.necessary_msg is not None
     )
+
     any_necessary_applied = any(
-        [
-            remediation
-            for remediation in optional_remediations
-            if remediation.necessary_msg is not None
-        ]
+        remediation
+        for remediation in optional_remediations
+        if remediation.necessary_msg is not None
     )
+
     any_optional_applied = False
 
     if any_optional_or_necessary_remediations:

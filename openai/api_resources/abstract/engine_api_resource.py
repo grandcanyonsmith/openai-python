@@ -36,17 +36,17 @@ class EngineAPIResource(APIResource):
                     "You must provide the deployment name in the 'engine' parameter to access the Azure OpenAI service"
                 )
             extn = quote_plus(engine)
-            return "/%s/%s/%ss?api-version=%s" % (cls.azure_api_prefix, extn, base, api_version)
+            return f"/{cls.azure_api_prefix}/{extn}/{base}s?api-version={api_version}"
 
         elif typed_api_type == ApiType.OPEN_AI:
             if engine is None:
-                return "/%ss" % (base)
+                return f"/{base}s"
 
             extn = quote_plus(engine)
-            return "/engines/%s/%ss" % (extn, base)
+            return f"/engines/{extn}/{base}s"
 
         else:
-            raise error.InvalidAPIType('Unsupported API type %s' % api_type)
+            raise error.InvalidAPIType(f'Unsupported API type {api_type}')
 
 
     @classmethod
@@ -140,21 +140,22 @@ class EngineAPIResource(APIResource):
                 raise error.InvalidRequestError("An API version is required for the Azure API type.")
             extn = quote_plus(id)
             base = self.OBJECT_NAME.replace(".", "/")
-            url = "/%s/%s/%ss/%s?api-version=%s" % (self.azure_api_prefix, self.engine, base, extn, api_version)
+            url = f"/{self.azure_api_prefix}/{self.engine}/{base}s/{extn}?api-version={api_version}"
+
             params_connector = '&'
 
         elif self.typed_api_type == ApiType.OPEN_AI:
             base = self.class_url(self.engine, self.api_type, self.api_version)
             extn = quote_plus(id)
-            url = "%s/%s" % (base, extn)
+            url = f"{base}/{extn}"
 
         else:
-            raise error.InvalidAPIType('Unsupported API type %s' % self.api_type)
+            raise error.InvalidAPIType(f'Unsupported API type {self.api_type}')
 
         timeout = self.get("timeout")
         if timeout is not None:
             timeout = quote_plus(str(timeout))
-            url += params_connector + "timeout={}".format(timeout)
+            url += f"{params_connector}timeout={timeout}"
         return url
 
     def wait(self, timeout=None):

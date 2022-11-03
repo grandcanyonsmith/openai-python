@@ -17,7 +17,7 @@ class FineTune(ListableAPIResource, CreateableAPIResource):
     def cancel(cls, id, api_key=None, request_id=None, **params):
         base = cls.class_url()
         extn = quote_plus(id)
-        url = "%s/%s/cancel" % (base, extn)
+        url = f"{base}/{extn}/cancel"
         instance = cls(id, api_key, **params)
         return instance.request("post", url, request_id=request_id)
 
@@ -41,7 +41,7 @@ class FineTune(ListableAPIResource, CreateableAPIResource):
             api_version=api_version,
             organization=organization,
         )
-        url = "%s/%s/events?stream=true" % (base, extn)
+        url = f"{base}/{extn}/events?stream=true"
         response, _, api_key = requestor.request(
             "get", url, params, stream=True, request_id=request_id
         )

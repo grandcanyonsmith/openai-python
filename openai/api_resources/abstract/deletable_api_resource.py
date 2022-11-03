@@ -8,5 +8,5 @@ class DeletableAPIResource(APIResource):
     def delete(cls, sid, **params):
         if isinstance(cls, APIResource):
             raise ValueError(".delete may only be called as a class method now.")
-        url = "%s/%s" % (cls.class_url(), quote_plus(sid))
+        url = f"{cls.class_url()}/{quote_plus(sid)}"
         return cls._static_request("delete", url, **params)
